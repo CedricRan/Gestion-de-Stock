@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>StockAI Dashboard</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+:root{
+  --primary:#3b82f6;
+  --success:#10b981;
+  --warning:#f59e0b;
+  --danger:#ef4444;
+  --bg:#f8fafc;
+}
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:Inter,sans-serif;
+}
+
+body{
+  background:var(--bg);
+  height:100vh;
+  overflow:hidden;
+}
+
+.container{
+  display:flex;
+  height:100vh;
+}
+
+/* SIDEBAR */
+
+.sidebar{
+  width:260px;
+  background:white;
+  border-right:1px solid #e5e7eb;
+  padding:20px;
+  flex-shrink:0;
+  display: flex;
+  flex-direction: column;
+}
+
+.logo{
+  font-size:24px;
+  font-weight:700;
+  color:var(--primary);
+  margin-bottom:30px;
+}
+
+.nav-menu {
+  flex: 1;
+}
+
+.nav-item{
+  padding:14px;
+  border-radius:10px;
+  margin-bottom:10px;
+  cursor:pointer;
+  transition:.3s;
+}
+
+.nav-item:hover{
+  background:#eef4ff;
+}
+
+.nav-item.active{
+  background:var(--primary);
+  color:white;
+}
+
+/* MODAL / POPUP */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modalContent {
+  background: white;
+  padding: 25px;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.modalContent h2 {
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-group input, .form-group select {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 14px;
+}
+
+.btn-submit {
+  background: var(--primary);
+  color: white; border: none; padding: 12px;
+  border-radius: 8px; width: 100%; cursor: pointer;
+  font-weight: 600; font-size: 15px; margin-top: 10px;
+}
+
+.feedback-box {
+  margin-top: 10px; padding: 10px; border-radius: 6px; font-size: 13px; display: none;
+}
+
+/* CONTENT */
+
+.content{
+  flex:1;
+  overflow-y:auto;
+  padding:25px;
+}
+
+.window{
+  display:none;
+}
+
+.window.active{
+  display:block;
+}
+
+.header{
+  margin-bottom:25px;
+}
+
+.header h1{
+  font-size:28px;
+}
+
+.header p{
+  color:#64748b;
+}
+
+/* KPI GRID */
+
+.kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:18px;
+  margin-bottom:25px;
+}
+
+.kpi-card{
+  background:white;
+  border-radius:16px;
+  padding:18px;
+  min-height:140px;
+  overflow:hidden;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+.kpi-card::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  width:5px;
+  height:100%;
+}
+
+.primary::before{
+  background:var(--primary);
+}
+
+.success::before{
+  background:var(--success);
+}
+
+.warning::before{
+  background:var(--warning);
+}
+
+.danger::before{
+  background:var(--danger);
+}
+
+.kpi-title{
+  color:#64748b;
+  font-size:14px;
+  margin-bottom:10px;
+}
+
+.kpi-value{
+  font-size:34px;
+  font-weight:700;
+  word-break:break-word;
+  overflow-wrap:anywhere;
+}
+
+.alert-card{
+  background:#fef2f2;
+}
+
+/* CHART */
+
+.chart-card{
+  background:white;
+  padding:20px;
+  border-radius:16px;
+  margin-bottom:25px;
+}
+
+.chart-wrapper{
+  height:400px;
+  position:relative;
+}
+
+/* SEARCH & FILTERS */
+
+.search-box{
+  margin-bottom:20px;
+}
+
+.search-box input{
+  width:100%;
+  padding:14px;
+  border-radius:12px;
+  border:1px solid #d1d5db;
+}
+
+.filters-row {
+  display: flex; gap: 15px; margin-bottom: 20px; background: white; padding: 15px; border-radius: 12px;
+}
+
+/* TABLE */
+
+.table-container{
+  background:white;
+  border-radius:16px;
+  overflow:auto;
+  max-height:70vh;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:900px;
+}
+
+th{
+  background:#f1f5f9;
+  text-align:left;
+  padding:14px;
+}
+
+td{
+  padding:14px;
+  border-top:1px solid #eee;
+}
+
+tr.urgent{
+  background:#fee2e2;
+  color:#991b1b;
+  font-weight:bold;
+}
+
+/* ANOMALIES CARD DESIGN */
+.anomaly-item {
+  background: white; padding: 20px; border-radius: 12px; margin-bottom: 15px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+      /* RESPONSIVE */
+
+      @media(max-width:900px){
+
+        .sidebar{
+          width:75px;
+        }
+
+        .logo{
+          font-size:14px;
+        }
+
+        .nav-item{
+          text-align:center;
+          font-size:12px;
+        }
+
+        .content{
+          padding:15px;
+        }
+
+        .kpi-value{
+          font-size:28px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+
+    <div class="container">
+
+      <aside class="sidebar">
+
+        <div class="logo">
+          StockAI
+        </div>
+
+        <div class="nav-menu">
+          <div class="nav-item active" id="btn-dashboard" onclick="changerFenetre('window-dashboard',this)">
+            Tableau de Bord
+          </div>
+
+          <div class="nav-item" id="btn-stocks" onclick="changerFenetre('window-stocks',this)">
+            Stocks
+          </div>
+
+          <div class="nav-item" id="btn-consommation" onclick="changerFenetre('window-consommation',this)">
+            Consommation
+          </div>
+
+          <div class="nav-item" id="btn-historique" onclick="changerFenetre('window-historique',this)">
+            Historique
+          </div>
+
+          <div class="nav-item" id="btn-anomalies" onclick="changerFenetre('window-anomalies',this)">
+            Anomalies
+          </div>
+        </div>
+
+        <button onclick="ouvrirModal()" style="background:#2563eb; color:white; border:none; padding:12px; border-radius:10px; font-weight:bold; cursor:pointer; width:100%;">
+          ➕ Nouveau Mouvement
+        </button>
+
+      </aside>
+
+      <main class="content">
+
+        <section id="window-dashboard" class="window active">
+
+          <div class="header">
+            <h1>Tableau de Bord AI & Supply Chain</h1>
+            <p>
+            Statistiques globales de performance
+            et d'état du stock en temps réel.
+            </p>
+          </div>
+
+          <div class="kpi-grid">
+
+            <div class="kpi-card primary">
+              <div class="kpi-title">Références en Stock</div>
+              <div class="kpi-value" id="totalProducts">-</div> </div>
+
+            <div class="kpi-card danger alert-card">
+              <div class="kpi-title">Urgences Rupture (≤2j)</div>
+              <div class="kpi-value" id="criticalProducts">-</div> </div>
+
+            <div class="kpi-card warning">
+              <div class="kpi-title">Anomalies Détectées</div>
+              <div class="kpi-value" id="anomaliesCount">-</div> </div>
+
+            <div class="kpi-card success">
+              <div class="kpi-title">Flux du Jour</div>
+              <div class="kpi-value" id="movementsCount">-</div> </div>
+
+          </div>
+          <div class="chart-card">
+
+            <h3>
+              Flux d'activité des 7 derniers jours
+            </h3>
+
+            <div class="chart-wrapper">
+              <canvas id="dashboardChart"></canvas>
+            </div>
+
+          </div>
+
+        </section>
+
+        <section id="window-stocks" class="window">
+
+          <div class="header">
+            <h1>Gestion des Stocks</h1>
+            <p>Liste triée par urgence de rupture depuis Elasticsearch.</p>
+          </div>
+
+          <div class="search-box">
+            <input
+                id="searchInput"
+                type="text"
+                placeholder="Taper le nom d'un produit..."
+                oninput="filtrerLeStockParNom()"
+                >
+          </div>
+
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Produit</th>
+                    <th>Stock Actuel</th>
+                    <th>Consommation Moy.</th>
+                    <th>Autonomie Restante</th>
+                  </tr>
+                </thead>
+                <tbody id="stocks-table-body">
+                </tbody>
+              </table>
+            </div>
+
+        </section>
+
+        <section id="window-consommation" class="window">
+          <div class="header">
+            <h1>Analyse de la Consommation</h1>
+            <p>Suivi de la vélocité des sorties et rythme d'épuisement des stocks.</p>
+          </div>
+
+          <div id="velocity-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px;">
+          </div>
+
+          <div class="chart-card">
+            <h3>Tendances de Consommation Globale (Unités sorties / jour)</h3>
+            <div class="chart-wrapper" style="height: 320px; position: relative; margin-top: 15px;">
+              <canvas id="consumptionTrendsChart"></canvas>
+            </div>
+          </div>
+        </section>        <section id="window-historique" class="window">
+          <div class="header">
+            <h1>Historique des Mouvements</h1>
+            <p>Journal d'audit des flux d'entrées et de sorties du stock.</p>
+          </div>
+
+          <div class="filters-row">
+            <div class="form-group" style="margin:0;">
+              <input type="date" id="filter-date" oninput="appliquerFiltresHistorique()">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <select id="filter-type" onchange="appliquerFiltresHistorique()">
+                <option value="ALL">Tous les flux</option>
+                <option value="IN">📥 Entrées (IN)</option>
+                <option value="OUT">📤 Sorties (OUT)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date & Heure</th>
+                  <th>Produit</th>
+                  <th>Type de Mouvement</th>
+                  <th>Quantité</th>
+                </tr>
+              </thead>
+              <tbody id="history-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="window-anomalies" class="window">
+          <div class="header">
+            <h1>Détections d'Anomalies IA</h1>
+            <p>Mouvements ou pics inhabituels identifiés par traitement statistique Z-Score.</p>
+          </div>
+          <div id="anomalies-container"></div>
+        </section>
+
+      </main>
+
+    </div>
+
+    <div class="modal" id="movementModal">
+      <div class="modalContent">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+          <h3 style="margin:0;">Nouveau Mouvement de Stock</h3>
+          <span onclick="fermerModal()" style="font-size:24px; cursor:pointer; color:#94a3b8;">&times;</span>
+        </div>
+        <form id="transaction-form" onsubmit="envoyerTransaction(event)">
+          <div class="form-group">
+            <label>Nom du produit</label>
+            <input type="text" id="tx-name" placeholder="Ex: Capteur Laser" required>
+          </div>
+          <div class="form-group">
+            <label>Type de flux</label>
+            <select id="tx-type" required>
+              <option value="IN">Entrée (IN)</option>
+              <option value="OUT">Sortie (OUT)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Quantité</label>
+            <input type="number" id="tx-qty" min="1" placeholder="Ex: 50" required>
+          </div>
+          <button type="submit" class="btn-submit">💾 Valider et Indexer</button>
+          <div id="tx-feedback" class="feedback-box"></div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      // Mémoire locale globale
+      let memoireStocks = [];
+      let tousLesMouvements = [];
+      let instanceChartGlobal = null; // Stocke le graphe pour pouvoir le rafraîchir proprement
+
+      // --- POPUP CONTROLLER ---
+      function ouvrirModal() { document.getElementById('movementModal').style.display = 'flex'; }
+      function fermerModal() {
+        document.getElementById('movementModal').style.display = 'none';
+        document.getElementById('transaction-form').reset();
+        document.getElementById('tx-feedback').style.display = 'none';
+      }
+
+      // --- CHANGER DE FENÊTRE ---
+      function changerFenetre(id, element) {
+        document.querySelectorAll(".window").forEach(w => w.classList.remove("active"));
+        const target = document.getElementById(id);
+        if(target) target.classList.add("active");
+
+        document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+        if(element) element.classList.add("active");
+
+        // Appels selon l'onglet
+        if (id === 'window-dashboard') chargerDashboardStats();
+        if (id === 'window-stocks') chargerStocksUrgents();
+        if (id === 'window-consommation') chargerConsommations();
+        if (id === 'window-historique') chargerHistorique();
+        if (id === 'window-anomalies') chargerAnomalies();
+      }
+
+      // --- ENDPOINT POST : ENREGISTRER UN MOUVEMENT ---
+      async function envoyerTransaction(event) {
+        event.preventDefault();
+        const name = document.getElementById('tx-name').value.trim();
+        const qty = parseInt(document.getElementById('tx-qty').value, 10);
+        const type = document.getElementById('tx-type').value;
+        const feedback = document.getElementById('tx-feedback');
+
+        try {
+          const response = await fetch('/movement', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, state: type, qte: qty })
+          });
+
+          if (response.ok) {
+            feedback.style.display = 'block';
+            feedback.style.background = '#dcfce7'; feedback.style.color = '#166534';
+            feedback.innerText = "✅ Indexé avec succès dans Elasticsearch !";
+            setTimeout(() => { 
+              fermerModal(); 
+              // Si on est sur le tableau de bord, rafraîchir les KPIs
+              if(document.getElementById('window-dashboard').classList.contains('active')) {
+                chargerDashboardStats();
+              }
+            }, 1000);
+          } else {
+            const err = await response.json();
+            feedback.style.display = 'block';
+            feedback.style.background = '#fee2e2'; feedback.style.color = '#991b1b';
+            feedback.innerText = err.detail || "Erreur de validation.";
+          }
+        } catch (e) {
+          feedback.style.display = 'block';
+          feedback.style.background = '#fee2e2'; feedback.style.color = '#991b1b';
+          feedback.innerText = "Impossible de joindre l'API.";
+        }
+      }
+
+
+
+async function chargerDashboardStats() {
+  try {
+    const response = await fetch('/dashboard/stats');
+    const data = await response.json();
+
+    // 1️⃣ Mise à jour des 4 compteurs (KPIs)
+    document.getElementById('totalProducts').innerText = data.total_references;
+    document.getElementById('criticalProducts').innerText = data.urgences_rupture;
+    document.getElementById('anomaliesCount').innerText = data.anomalies_detectees;
+    document.getElementById('movementsCount').innerText = data.flux_du_jour;
+
+    // 2️⃣ RECONSTRUCTION DU SCHÉMA (Chart.js)
+    const ctx = document.getElementById("dashboardChart");
+    if (!ctx) return; // Sécurité si l'élément n'existe pas sur la page actuelle
+
+    // Si un graphique existe déjà, on le détruit pour pouvoir le réafficher proprement
+    if (instanceChartGlobal) {
+        instanceChartGlobal.destroy();
+    }
+
+    // On crée le nouveau schéma avec les vraies listes reçues de FastAPI
+    instanceChartGlobal = new Chart(ctx.getContext("2d"), {
+      type: "bar", // Graphique en barres
+      data: {
+        labels: data.graphique.labels, // Les dates ex: ["04/06", "05/06", "06/06"]
+        datasets: [
+          {
+            label: "Entrées (IN)",
+            data: data.graphique.entrees, // Tableau des quantités entrantes
+            backgroundColor: "#10b981",   // Vert
+            borderRadius: 6
+          },
+          {
+            label: "Sorties (OUT)",
+            data: data.graphique.sorties, // Tableau des quantités sortantes
+            backgroundColor: "#ef4444",   // Rouge
+            borderRadius: 6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "top" }
+        },
+        scales: {
+          y: { beginAtZero: true, grid: { color: "#f1f5f9" } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Erreur lors du rendu du schéma graphique :", error);
+    document.getElementById('totalProducts').innerText = "⚠️";
+    document.getElementById('criticalProducts').innerText = "⚠️";
+    document.getElementById('anomaliesCount').innerText = "⚠️";
+    document.getElementById('movementsCount').innerText = "⚠️";
+  }
+}      // --- ENDPOINT GET : CHARGER LES STOCKS PAR URGENCE ---
+      async function chargerStocksUrgents() {
+        const tbody = document.getElementById('stocks-table-body');
+        try {
+          const response = await fetch('/stocks/by-urgency');
+          memoireStocks = await response.json();
+          dessinerTableauStock(memoireStocks);
+        } catch (error) {
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--danger);">Erreur API backend.</td></tr>`;
+        }
+      }
+
+      function dessinerTableauStock(liste) {
+        const tbody = document.getElementById('stocks-table-body');
+        tbody.innerHTML = "";
+        if(liste.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#64748b;">Aucune donnée.</td></tr>`;
+          return;
+        }
+        liste.forEach(p => {
+          const nom = p.nom_produit || p.name || "Inconnu";
+          const stock = p.stock_actuel !== undefined ? p.stock_actuel : 0;
+          const conso = p.consommation_moyenne !== undefined ? p.consommation_moyenne : 0;
+          const jours = typeof p.jours_restants === 'number' ? `${p.jours_restants} jours` : "Stable";
+
+          tbody.innerHTML += `
+            <tr class="${typeof p.jours_restants === 'number' && p.jours_restants <= 2 ? 'urgent' : ''}">
+              <td><strong>${nom}</strong></td>
+              <td>${stock}</td>
+              <td>${conso} u/j</td>
+              <td>${jours}</td>
+            </tr>`;
+        });
+      }
+
+      function filtrerLeStockParNom() {
+        const valeur = document.getElementById("searchInput").value.toLowerCase().trim();
+        if(valeur === "") { dessinerTableauStock(memoireStocks); return; }
+        const filtres = memoireStocks.filter(p => (p.nom_produit || p.name || "").toLowerCase().includes(valeur));
+        dessinerTableauStock(filtres);
+      }
+
+      // --- ENDPOINT GET : VITESSE DE CONSOMMATION ---
+      let instanceChartConso = null; // À ajouter en haut de ton script avec tes variables globales
+
+      async function chargerConsommations() {
+        const container = document.getElementById('velocity-cards-grid');
+        try {
+          const response = await fetch('/consommation');
+          const data = await response.json(); // Attend un tableau de produits avec leur vitesse
+
+          if (!data || data.length === 0) {
+            container.innerHTML = "<p style='color:#64748b;'>Aucune donnée de consommation disponible pour le moment.</p>";
+            return;
+          }
+
+          // 1. Génération des Cartes UI/UX
+          container.innerHTML = "";
+          data.forEach(item => {
+            const vitesse = item.vitesse_consommation || 0;
+
+            // Détermination d'un badge de rythme visuel suivant la vitesse
+            let badgeColor = "background: #ef4444; color: white;"; // Ultra rapide
+            let rythme = "🔥 Flux Intense";
+            if (vitesse < 5) {
+              badgeColor = "background: #f1f5f9; color: #475569;"; // Lent
+              rythme = "🐢 Flux Faible";
+            } else if (vitesse <= 20) {
+              badgeColor = "background: #e0f2fe; color: #0369a1;"; // Modéré
+              rythme = "⚡ Flux Régulier";
+            }
+
+            container.innerHTML += `
+        <div style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; display: flex; flex-direction: column; justify-content: space-between; gap: 15px;">
+          <div>
+            <span style="font-size: 12px; font-weight: 700; padding: 4px 8px; border-radius: 20px; ${badgeColor}">${rythme}</span>
+            <h3 style="margin-top: 12px; font-size: 18px; color: #0f172a;">${item.nom_produit || "Produit Inconnu"}</h3>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 5px;">
+            <span style="font-size: 32px; font-weight: 800; color: #1e293b;">${vitesse}</span>
+            <span style="color: #64748b; font-size: 14px;">unités / jour</span>
+          </div>
+        </div>
+      `;
+          });
+
+          // 2. Génération du graphique de tendances de consommation
+          // On extrait les noms et les vitesses pour construire le graphique
+          const labelsProduits = data.map(item => item.nom_produit || "Inconnu");
+          const valeursVitesses = data.map(item => item.vitesse_consommation || 0);
+
+          if (instanceChartConso) {
+            instanceChartConso.destroy(); // Nettoyage de l'ancienne instance
+          }
+
+          const ctx = document.getElementById("consumptionTrendsChart").getContext("2d");
+          instanceChartConso = new Chart(ctx, {
+            type: "line", // Un graphique en ligne fait beaucoup plus "analytics" qu'un tableau brut
+            data: {
+              labels: labelsProduits,
+              datasets: [{
+                label: "Rythme de consommation journalier",
+                data: valeursVitesses,
+                borderColor: "#3b82f6",
+                backgroundColor: "rgba(59, 130, 246, 0.1)",
+                fill: true,
+                tension: 0.3,
+                borderWidth: 3,
+                pointBackgroundColor: "#2563eb"
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  grid: { color: "#f1f5f9" },
+                  title: { display: true, text: "Unités écoutées" }
+                },
+                x: {
+                  grid: { display: false }
+                }
+              }
+            }
+          });
+
+        } catch (e) {
+          console.error(e);
+          container.innerHTML = "<p style='color:var(--danger);'>Erreur lors du chargement des analyses UI.</p>";
+        }
+      }
+      // --- ENDPOINT GET : HISTORIQUE DES MOUVEMENTS ---
+      async function chargerHistorique() {
+        try {
+          const response = await fetch('/movements');
+          tousLesMouvements = await response.json();
+          afficherLignesHistorique(tousLesMouvements);
+        } catch (e) {
+          document.getElementById('history-table-body').innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--danger);">Échec d'accès à l'historique.</td></tr>`;
+        }
+      }
+
+      function afficherLignesHistorique(liste) {
+        const tbody = document.getElementById('history-table-body');
+        tbody.innerHTML = "";
+        if(liste.length === 0) { tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#64748b;">Aucun mouvement.</td></tr>`; return; }
+
+        liste.forEach(m => {
+          const date = (m.date_mouvement || m.timestamp || "Récents").replace("T", " ").substring(0, 19);
+          const type = m.type_mouvement || "IN";
+          const color = type === 'IN' ? 'color:var(--success); font-weight:bold;' : 'color:var(--danger); font-weight:bold;';
+          tbody.innerHTML += `
+            <tr>
+              <td style="color:#64748b;">${date}</td>
+              <td><strong>${m.nom_produit || "Produit"}</strong></td>
+              <td style="${color}">${type}</td>
+              <td>${m.quantite || 0}</td>
+            </tr>`;
+        });
+      }
+
+      function appliquerFiltresHistorique() {
+        const dateF = document.getElementById('filter-date').value;
+        const typeF = document.getElementById('filter-type').value;
+        let filtres = tousLesMouvements;
+
+        if(typeF !== 'ALL') filtres = filtres.filter(m => (m.type_mouvement || 'IN') === typeF);
+        if(dateF) filtres = filtres.filter(m => (m.date_mouvement || '').startsWith(dateF));
+        afficherLignesHistorique(filtres);
+      }
+
+      // --- ENDPOINT GET : ANOMALIES LOGICIELLES Z-SCORE ---
+      async function chargerAnomalies() {
+        const container = document.getElementById('anomalies-container');
+        try {
+          const response = await fetch('/anomalies');
+          const data = await response.json();
+          let anomalies = Array.isArray(data) ? data : (data.anomalies || []);
+
+          if(anomalies.length === 0) {
+            container.innerHTML = `<div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:15px; border-radius:10px;">✅ Aucune anomalie détectée via Z-Score.</div>`;
+            return;
+          }
+
+          container.innerHTML = "";
+          anomalies.forEach(a => {
+            container.innerHTML += `
+              <div class="anomaly-item" style="border-left:5px solid ${a.z_score > 3 ? 'var(--danger)':'var(--warning)'};">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                  <strong>${a.nom_produit || "Produit suspect"}</strong>
+                  <span style="background:#fee2e2; color:#991b1b; padding:3px 8px; border-radius:10px; font-size:12px; font-weight:bold;">Z-Score: ${a.z_score ? a.z_score.toFixed(2) : 0}</span>
+                </div>
+                <p style="font-size:14px; margin:0; color:#475569;">${a.description || "Volume de transaction hors-norme détecté."}</p>
+              </div>`;
+          });
+        } catch (e) {
+          container.innerHTML = "<p style='color:var(--danger);'>Erreur lors du calcul des anomalies.</p>";
+        }
+      }
+
+      // Chargement initial au démarrage
+      window.onload=()=>{
+        chargerDashboardStats(); // Charge désormais les vraies données à l'ouverture !
+      };
+    </script>
+
+  </body>
+</html>
