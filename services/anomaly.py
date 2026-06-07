@@ -6,6 +6,97 @@ class AnomalyService:
         self.index_name = "anomalies"
 
     async def analyze_movement(self, name: str, qte: int, state: str):
+        # On n'analyse que les sorties de stock
+        if state != "OUT":
+            return
+
+        # 1. Récupérer l'historique des sorties du produit (30 derniers jours)
+        il_y_a_30_jours = (datetime.utcnow() - timedelta(days=30)).isoformat()
+        
+        query = {
+            "query": {
+                "bool": {
+                    "must": [
+                        {"term": {"nom_produit": name}},
+                        {"term": {"type_mouvement.keyword": "OUT"}},
+                        {"range": {"date_mouvement": {"gte": il_y_a_30_jours}}}
+                    ]
+                }
+            },
+            "aggs": {
+                "stats_sorties": {
+                    "extended_stats": {"field": "quantite"}
+                }
+            },
+            "size": 0
+        }
+
+        try:
+            response = es.search(index="movements", body=query)
+            stats = response["aggregations"]["stats_sorties"]
+            
+            moyenne = stats["avg"] or 0
+            ecart_type = stats["std_deviation"] or 0
+            historique_count = stats["count"] or 0
+        except Exception as e:
+            print(f"⚠️ Impossible d'interroger l'historique Elastic : {e}")
+            return
+
+        # 2. Algorithme de détection intelligent
+        is_anomaly = False
+        z_score_final = 0.0
+        raison = ""
+
+        # Cas A : Produit fréquemment utilisé (assez de recul historique)
+        if historique_count >= 5:
+            # Sécurité division par zéro : si les sorties passées sont identiques (écart-type à 0)
+            # mais que la quantité actuelle est différente, on simule un écart-type de 1.0
+            if ecart_type == 0 and qte != moyenne:
+                ecart_type = 1.0
+
+            if ecart_type > 0:
+                z_score = (qte - moyenne) / ecart_type
+                
+                # Un Z-Score supérieur à 2.5 indique une anomalie claire
+                if z_score > 2.5:
+                    is_anomaly = True
+                    z_score_final = round(z_score, 2)
+                    raison = f"Volume suspect (Z-Score: {z_score_final}). Moyenne habituelle: {round(moyenne, 1)}"
+
+        # Cas B : Historique faible ou pas d'écart-type, on applique un seuil d'alerte absolu
+        else:
+            if qte > 100:
+                is_anomaly = True
+                # On simule un Z-Score proportionnel pour l'interface graphique
+                z_score_final = round(qte / 100, 2)
+                raison = f"Pic de consommation brut sans historique solide ({qte} unités > 100)"
+
+        # 3. Enregistrer l'anomalie dans Elasticsearch si elle est validée
+        if is_anomaly:
+            anomaly_doc = {
+                "nom_produit": name,
+                "type": "Consommation excessive",
+                "quantite": qte,
+                "z_score": z_score_final,    # 🛠️ Aligné avec ton JavaScript (a.z_score)
+                "description": raison,        # 🛠️ Aligné avec ton JavaScript (a.description)
+                "date": datetime.utcnow().isoformat()
+            }
+
+            es.index(index=self.index_name, document=anomaly_doc)
+            print(f"🚨 [ANOMALIE VALIDÉE] {name} - Z-Score: {z_score_final} | {raison}")
+
+# Instanciation du service
+anomaly_service = AnomalyService()
+
+"""
+from datetime import datetime, timedelta
+from database.elastic import es
+
+class AnomalyService:
+    def __init__(self):
+        self.index_name = "anomalies"
+
+    async def analyze_movement(self, name: str, qte: int, state: str):
         if state != "OUT":
             return
 
@@ -79,7 +170,7 @@ class AnomalyService:
             print(f"🚨 [ANOMALIE CONVAINCANTE] {name} - Score: {score} | Raison: {raison}")
 
 anomaly_service = AnomalyService()
-
+"""
 """
 from datetime import datetime
 from database.elastic import es

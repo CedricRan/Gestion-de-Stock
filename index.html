@@ -825,35 +825,46 @@ async function chargerDashboardStats() {
         afficherLignesHistorique(filtres);
       }
 
-      // --- ENDPOINT GET : ANOMALIES LOGICIELLES Z-SCORE ---
       async function chargerAnomalies() {
-        const container = document.getElementById('anomalies-container');
-        try {
-          const response = await fetch('/anomalies');
-          const data = await response.json();
-          let anomalies = Array.isArray(data) ? data : (data.anomalies || []);
+  const container = document.getElementById('anomalies-container');
+  try {
+    const response = await fetch('/anomalies');
+    const data = await response.json();
+    let bruteAnomalies = Array.isArray(data) ? data : (data.anomalies || []);
 
-          if(anomalies.length === 0) {
-            container.innerHTML = `<div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:15px; border-radius:10px;">✅ Aucune anomalie détectée via Z-Score.</div>`;
-            return;
-          }
+    // 🛠️ SÉCURITÉ : On ne garde que les éléments qui ont un VRAI score supérieur à 0
+    let anomalies = bruteAnomalies.filter(a => (a.z_score || a.score) > 0);
 
-          container.innerHTML = "";
-          anomalies.forEach(a => {
-            container.innerHTML += `
-              <div class="anomaly-item" style="border-left:5px solid ${a.z_score > 3 ? 'var(--danger)':'var(--warning)'};">
-                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                  <strong>${a.nom_produit || "Produit suspect"}</strong>
-                  <span style="background:#fee2e2; color:#991b1b; padding:3px 8px; border-radius:10px; font-size:12px; font-weight:bold;">Z-Score: ${a.z_score ? a.z_score.toFixed(2) : 0}</span>
-                </div>
-                <p style="font-size:14px; margin:0; color:#475569;">${a.description || "Volume de transaction hors-norme détecté."}</p>
-              </div>`;
-          });
-        } catch (e) {
-          container.innerHTML = "<p style='color:var(--danger);'>Erreur lors du calcul des anomalies.</p>";
-        }
-      }
+    if (anomalies.length === 0) {
+      container.innerHTML = `<div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:15px; border-radius:10px;">✅ Aucune anomalie détectée via Z-Score.</div>`;
+      return;
+    }
 
+    container.innerHTML = "";
+    anomalies.forEach(a => {
+      // 🛠️ On accepte a.z_score OU a.score au cas où
+      const scoreReel = a.z_score !== undefined ? a.z_score : (a.score || 0);
+      const descriptionReelle = a.description || a.raison || "Volume de transaction hors-norme détecté.";
+      
+      // Si supérieur à 3 -> Rouge (Danger), sinon Orange (Warning)
+      const borderColor = scoreReel > 3 ? 'var(--danger)' : 'var(--warning)';
+
+      container.innerHTML += `
+        <div class="anomaly-item" style="border-left:5px solid ${borderColor};">
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            <strong>${a.nom_produit || "Produit suspect"}</strong>
+            <span style="background:#fee2e2; color:#991b1b; padding:3px 8px; border-radius:10px; font-size:12px; font-weight:bold;">
+              Z-Score: ${scoreReel.toFixed(2)}
+            </span>
+          </div>
+          <p style="font-size:14px; margin:0; color:#475569;">${descriptionReelle}</p>
+        </div>`;
+    });
+  } catch (e) {
+    console.error("Erreur JS Anomalies:", e);
+    container.innerHTML = "<p style='color:var(--danger);'>Erreur lors du calcul des anomalies.</p>";
+  }
+}
       // Chargement initial au démarrage
       window.onload=()=>{
         chargerDashboardStats(); // Charge désormais les vraies données à l'ouverture !
